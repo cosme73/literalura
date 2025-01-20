@@ -1,6 +1,6 @@
 package org.literalura.literalura1.repositories;
 
-import org.literalura.literalura.entities.Libro;
+import org.literalura.literalura1.entities.Libro;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 

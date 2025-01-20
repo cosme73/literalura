@@ -1,7 +1,7 @@
 package org.literalura.literalura1.entities;
 
 import jakarta.persistence.*;
-import org.literalura.literalura.dtos.LibroDto;
+import org.literalura.literalura1.dtos.LibroDto;
 
 import java.util.List;
 

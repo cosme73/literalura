@@ -1,200 +1,330 @@
 package org.literalura.literalura1.controllers;
 
-import org.literalura.literalura.entities.Autor;
-import org.literalura.literalura.entities.Libro;
-import org.literalura.literalura.services.IAutorService;
-import org.literalura.literalura.services.iLibroService;
+import org.literalura.literalura1.dtos.LibroDto;
+import org.literalura.literalura1.entities.Autor;
+import org.literalura.literalura1.entities.Libro;
+import org.literalura.literalura1.entities.Libroinfo;
+import org.literalura.literalura1.repositories.AutorRepository;
+import org.literalura.literalura1.repositories.LibroRepository;
+import org.literalura.literalura1.services.API;
+import org.literalura.literalura1.services.DatosC;
 import org.springframework.stereotype.Component;
 
-import java.util.IntSummaryStatistics;
-import java.util.List;
+import java.util.*;
 
 @Component
 public class Controlador {
-    private final iLibroService libroService;
-    private final IAutorService autorService;
-    private final Vista view;
-    private final Inputs inputHandler;
+    private String url = "https://gutendex.com/books/";
+    private Scanner teclado = new Scanner(System.in);
+    private API API = new API();
+    private DatosC convertir = new DatosC();
+    private List<Libro> listaLibros = new ArrayList<>();
+    private LibroRepository libroRepository;
+    private AutorRepository autorRepository;
 
-    public Controlador(iLibroService libroService,
-                       IAutorService autorService,
-                       Vista view,
-                       Inputs inputHandler) {
-        this.libroService = libroService;
-        this.autorService = autorService;
-        this.view = view;
-        this.inputHandler = inputHandler;
+    public Controlador(LibroRepository libroRepository, AutorRepository autorRepository) {
+        this.libroRepository = libroRepository;
+        this.autorRepository = autorRepository;
     }
 
-    public void iniciar() {
-        int opcion;
-        do {
-            view.mostrarLogo();
-            view.mostrarMenu();
-            opcion = inputHandler.leerOpcion();
+    public Controlador() {
+    }
 
-            switch (opcion) {
-                case 1 -> buscarLibroPorTitulo();
-                case 2 -> listarLibrosRegistrados();
-                case 3 -> listarAutoresRegistrados();
-                case 4 -> listarAutoresVivosPorAnio();
-                case 5 -> listarLibrosPorIdioma();
-                case 6 -> buscarAutorPorNombre();
-                case 7 -> listarAutoresPorRangoAnioNacimiento();
-                case 8 -> mostrarTop10Libros();
-                case 9 -> mostrarEstadisticas();
-                case 0 -> System.out.println("Saliendo de la aplicación");
-                default -> System.out.println("Opción no válida. Intente nuevamente.");
+
+    public void mostrarMenu() {
+        String logo = """
+                \u001B[34m
+                 ██╗     ██╗████████╗███████╗██████╗  █████╗ ██╗     ██╗   ██╗██████╗  █████╗ 
+                 ██║     ██║╚══██╔══╝██╔════╝██╔══██╗██╔══██╗██║     ██║   ██║██╔══██╗██╔══██╗
+                 ██║     ██║   ██║   █████╗  ██████╔╝███████║██║     ██║   ██║██████╔╝███████║
+                 ██║     ██║   ██║   ██╔══╝  ██╔██╗╝ ██╔══██║██║     ██║   ██║██╔██╗╝ ██╔══██║
+                 ███████╗██║   ██║   ███████╗██║ ╚██╗██║  ██║███████╗╚██████╔╝██║ ╚██╗██║  ██║
+                 ╚══════╝╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝
+                \u001B[0m
+                """;
+
+        String menu = """
+                \u001B[35m
+                █████████████████████████████████████████████████████████████████
+                █████████████████████████████████████████████████████████████████
+                █     ████████████████████████████████████████████████████      █
+                █     █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█      █
+                █     █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█      █
+                █          [1] - Buscar Libro por Titulo                        █      
+                █          [2] - Listar Libros Registrados                      █    
+                █          [3] - Listar Autores Registrados                     █                          
+                █          [4] - Listar Autores vivos en un determinado año     █                            
+                █          [5] - Listar Libros por Idioma                       █          
+                █          [6] - Buscar Autor por nombre                        █      
+                █          [7] - Listar Autores por rango de años de Nacimiento █       
+                █          [8] - Top 1[0]Libros mas descargados                 █           
+                █          [0] - Salir                                          █                  
+                █          ""\";▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒      █
+                █     █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█      █
+                █     █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█      █
+                █     █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█      █
+                █     █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█      █
+                █     ████████████████████████████████████████████████████      █
+                █████████████████████████████████████████████████████████████████
+                █████████████████████████████████████████████████████████████████
+                \\u001B[0m
+                """;
+
+
+        Integer opcion = -1;
+        while (opcion != 0) {
+
+            System.out.println(logo + "\n" + menu);
+            try {
+                opcion = teclado.nextInt();
+                teclado.nextLine();
+
+                switch (opcion) {
+                    case 1 -> buscarLibroPorTitulo();
+                    case 2 -> listarLibrosRegistrados();
+                    case 3 -> listarAutoresRegistrados();
+                    case 4 -> listarAutoresVivosPornio();
+                    case 5 -> listarLibrosPorIdioma();
+                    case 6 -> buscarAutorPorNomnbre();
+                    case 7 -> listarAutoresPorRangoAnioNacimiento();
+                    case 8 -> top10Libros();
+                    case 9 -> estadisticas();
+                    case 0 -> System.out.println("Saliendo de la aplicacion");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println(e.getMessage());
             }
 
-            if (opcion != 0) {
-                System.out.println("\nPresione ENTER para continuar...");
-                inputHandler.leerTexto();
-            }
-        } while (opcion != 0);
+        }
+    }
+
+
+    public LibroDto getDatosLibros() {
+        System.out.println("Ingrese el nombre del libro a buscar:");
+        String nombreLibro = teclado.nextLine();
+        var json = API.obtenerDatos(url + "?search=" + nombreLibro.replace(" ", "+"));
+        Libroinfo datos = convertir.ObtenerDatos(json, Libroinfo.class);
+
+        //optener el primer resultado
+        return datos.results().stream()
+                .filter(t -> t.titulo().toUpperCase().contains(nombreLibro.toUpperCase()))
+                .findFirst()
+                .orElse(null);
+
     }
 
     private void buscarLibroPorTitulo() {
-        view.mostrarTitulo("BUSCAR LIBRO POR TÍTULO");
-        System.out.println("Ingrese el título del libro:");
-        String titulo = inputHandler.leerTexto();
+        LibroDto libroBuscado = getDatosLibros();
 
-        Libro libro = libroService.buscarPorTitulo(titulo);
-        if (libro != null) {
-            view.mostrarLibro(libro);
+        if (libroBuscado == null) {
+            System.out.println("""
+                    
+                                  LIBRO NO ENCONTRADO                
+                    
+                    """);
+
         } else {
-            System.out.println("Libro no encontrado.");
+            //consulto si existe en la base de datos
+            Optional<Libro> libroGuardado = libroRepository.findByTituloContainsIgnoreCase(libroBuscado.titulo());
+
+            if (libroGuardado.isPresent()) {
+                var libro = libroGuardado.get();
+                mostrarLibro(libro);
+            } else {
+                Libro nuevoLibro = new Libro(libroBuscado);
+                Autor nuevoAutor = new Autor(libroBuscado.autores().get(0));
+                autorRepository.save(nuevoAutor);
+                nuevoLibro.setAutor(nuevoAutor);
+                libroRepository.save(nuevoLibro);
+                mostrarLibro(nuevoLibro);
+
+            }
         }
+
+    }
+
+    private void mostrarLibro(Libro l) {
+        String subTitulo;
+        String formatoLibro = """
+                
+                 * Titulo: %s
+                 * Autor:  %s
+                 * N° Descargas: %s
+                 * Idioma: %s
+                """;
+        var lengthIdiomas = l.getIdiomas().stream()
+                .mapToInt(String::length)
+                .sum();
+        if (l.getIdiomas().size() > 1)
+            lengthIdiomas += l.getIdiomas().size();
+
+        if (l.getTitulo().length() > 59) {
+            subTitulo = l.getTitulo().substring(0, 59);
+        } else {
+            subTitulo = l.getTitulo();
+        }
+
+        //formateo la salida para que el cuadro quede siempre bien
+
+        System.out.printf(formatoLibro,
+                subTitulo + " ".repeat(71 - subTitulo.length()),
+                l.getAutor().getNombre() + " ".repeat(71 - l.getAutor().getNombre().length()),
+                l.getNumerosDescaargas() + " ".repeat(65 - (l.getNumerosDescaargas() + "").length()),
+                l.getIdiomas() + " ".repeat(69 - lengthIdiomas));
+
     }
 
     private void listarLibrosRegistrados() {
-        view.mostrarTitulo("LIBROS REGISTRADOS");
-        List<Libro> libros = libroService.listarTodos();
+        List<Libro> listaLibros = libroRepository.findAll();
 
-        if (libros.isEmpty()) {
-            System.out.println("No hay libros registrados.");
-        } else {
-            libros.forEach(view::mostrarLibro);
-        }
+        mostrarTitulo("         LIBROS REGISTRADOS");
+        listaLibros.stream()
+                .forEach(l -> mostrarLibro(l));
+
+        System.out.println("presione una tecla para continuar...");
+        var a = teclado.nextLine();
     }
 
     private void listarAutoresRegistrados() {
-        view.mostrarTitulo("AUTORES REGISTRADOS");
-        List<Autor> autores = autorService.listarTodos();
+        List<Autor> listaAutores = autorRepository.findAll();
 
-        if (autores.isEmpty()) {
-            System.out.println("No hay autores registrados.");
-        } else {
-            autores.forEach(view::mostrarAutor);
-        }
+        mostrarTitulo("         AUTORES REGISTRADOS");
+        listaAutores.stream()
+                .forEach(a -> mostrarAutor(a));
+        System.out.println("presione una tecla para continuar...");
+        var a = teclado.nextLine();
     }
 
-    private void listarAutoresVivosPorAnio() {
-        view.mostrarTitulo("AUTORES VIVOS EN UN AÑO DETERMINADO");
-        System.out.println("Ingrese el año:");
-        int anio = inputHandler.leerNumero();
+    private void mostrarAutor(Autor l) {
+        String formatoLibro = """
+                 
+                 * Nombre: %s║
+                 * Nacimiento:  %s║
+                 * Fallecimiento: %s║
+                 
+                """;
 
-        if (anio < 0) {
-            System.out.println("Año inválido.");
-            return;
-        }
+        //formateo la salida para que el cuadro quede siempre bien
+        System.out.printf(formatoLibro,
+                l.getNombre() + " ".repeat(61 - (l.getNombre().length())),
+                l.getAnioNacimiento() + " ".repeat((56 - (l.getAnioNacimiento() + "").length())),
+                l.getFechaMuerte() + " ".repeat((54 - (l.getFechaMuerte() + "").length()))
 
-        List<Autor> autoresVivos = autorService.buscarVivosEnAnio(anio);
-        if (autoresVivos.isEmpty()) {
-            System.out.printf("No se encontraron autores vivos en el año %d.%n", anio);
-        } else {
-            System.out.printf("Autores que vivieron en %d:%n", anio);
-            autoresVivos.forEach(view::mostrarAutor);
+        );
+
+    }
+
+
+    public void listarAutoresVivosPornio() {
+        mostrarTitulo("AUTORES VIVOS EN UN AÑO DETERMINADO");
+        System.out.println("Ingrese el año: ");
+        Integer anio = teclado.nextInt();
+        List<Autor> listaAutoresVivosPorAnio = autorRepository.autoresVivosPorAnio(anio);
+        if (listaAutoresVivosPorAnio != null) {
+            System.out.printf("Autores que vivieron en %d \n", anio);
+            listaAutoresVivosPorAnio.forEach(System.out::println);
         }
     }
 
     private void listarLibrosPorIdioma() {
-        view.mostrarTitulo("LIBROS POR IDIOMAS");
-        System.out.println("""
-                Ingrese las dos primeras iniciales del idioma (ejemplo):
+        mostrarTitulo("LIBROS POR IDIOMAS");
+
+        System.out.println("Ingrese las dos primeras iniciales del idioma ejemplo:");
+        var idiomas = """
                 es [Español]    en [English]
-                fr [Francés]    ch [Chino]
-                """);
+                fr [Frances]    ch [Chino]
+                """;
+        System.out.println(idiomas);
 
-        String idioma = inputHandler.leerTexto().toLowerCase();
+        var opc = teclado.nextLine();
 
-        if (idioma.length() != 2) {
-            System.out.println("El código de idioma debe tener exactamente 2 letras.");
-            return;
-        }
-
-        List<Libro> libros = libroService.buscarPorIdioma(idioma);
-        if (libros.isEmpty()) {
-            System.out.println("No hay libros registrados en ese idioma.");
+        if (opc.length() == 0 || opc.length() > 2) {
+            System.out.println("Debe ingresar solo dos letras, ejemplo: es");
         } else {
-            libros.forEach(view::mostrarLibro);
+            List<Libro> librosPorIdiomas = libroRepository.findLibroByIdiomasContains(opc.toLowerCase());
+
+            if (!librosPorIdiomas.isEmpty()) {
+                librosPorIdiomas.forEach(l -> mostrarLibro(l));
+            } else {
+                System.out.println("no hay libros guardados en ese idioma!");
+            }
         }
     }
 
-    private void buscarAutorPorNombre() {
-        view.mostrarTitulo("BUSCAR AUTOR POR NOMBRE");
-        System.out.println("Ingrese el nombre del autor:");
-        String nombre = inputHandler.leerTexto();
+    private void buscarAutorPorNomnbre() {
+        mostrarTitulo("AUTORES POR NOMBRE");
 
-        List<Autor> autores = autorService.buscarPorNombre(nombre);
-        if (autores.isEmpty()) {
-            System.out.println("No se encontraron autores con ese nombre.");
+        System.out.println("Ingrese el nombre del autor: ");
+        var nombreAutor = teclado.nextLine();
+        List<Autor> autores = autorRepository.findAutorByNombreContainingIgnoreCase(nombreAutor);
+        if (!autores.isEmpty()) {
+            autores.forEach(a -> mostrarAutor(a));
         } else {
-            autores.forEach(view::mostrarAutor);
+            System.out.println("No se encontro autor!");
         }
     }
 
     private void listarAutoresPorRangoAnioNacimiento() {
-        view.mostrarTitulo("AUTORES POR RANGO DE AÑOS DE NACIMIENTO");
-        System.out.println("Ingrese el año de nacimiento inicial:");
-        int anioInicial = inputHandler.leerNumero();
+        mostrarTitulo("AUTORES NACIDOS ENTRE UN RANGO DE AÑOS");
 
-        System.out.println("Ingrese el año de nacimiento final:");
-        int anioFinal = inputHandler.leerNumero();
-
-        if (anioInicial < 0 || anioFinal < 0 || anioFinal < anioInicial) {
-            System.out.println("Rango de años inválido.");
+        System.out.println("Ingrese año nacimiento inicio:");
+        var anioNacimiento = teclado.nextInt();
+        System.out.println("Ingrese año nacimiento final");
+        var anioNacimientoFinal = teclado.nextInt();
+        if (anioNacimientoFinal < anioNacimiento) {
+            System.out.println("Error: el segundo año no puede ser menor al primer año de nacimiento");
             return;
         }
-
-        List<Autor> autores = autorService.buscarPorRangoNacimiento(anioInicial, anioFinal);
-        if (autores.isEmpty()) {
-            System.out.printf("No se encontraron autores nacidos entre %d y %d.%n", anioInicial, anioFinal);
+        List<Autor> autores = autorRepository.findAutorByAnioNacimientoBetween(anioNacimiento, anioNacimientoFinal);
+        if (!autores.isEmpty()) {
+            autores.forEach(a -> mostrarAutor(a));
         } else {
-            autores.forEach(view::mostrarAutor);
+            System.out.println("No se encontraron autores nacidos entre esos años");
         }
     }
 
-    private void mostrarTop10Libros() {
-        view.mostrarTitulo("TOP 10 LIBROS MÁS DESCARGADOS");
-        List<Libro> topLibros = libroService.obtenerTop10PorDescargas();
-
-        if (topLibros.isEmpty()) {
-            System.out.println("No hay libros registrados.");
-        } else {
-            topLibros.forEach(view::mostrarLibro);
-        }
+    private void top10Libros() {
+        List<Libro> top10Libro = libroRepository.findTop10ByOrderByNumeroDescargas();
+        mostrarTitulo("TOP 10 DE LIBROS");
+        top10Libro.forEach(l -> mostrarLibro(l));
     }
 
-    private void mostrarEstadisticas() {
-        view.mostrarTitulo("ESTADÍSTICAS DE LIBROS");
-        List<Libro> libros = libroService.listarTodos();
-
-        if (libros.isEmpty()) {
-            System.out.println("No hay libros registrados para mostrar estadísticas.");
-            return;
-        }
+    private void estadisticas() {
+        List<Libro> libros = libroRepository.findAll();
 
         IntSummaryStatistics stats = libros.stream()
                 .mapToInt(Libro::getNumerosDescaargas)
                 .summaryStatistics();
 
-        view.mostrarEstadisticas(
-                stats.getSum(),
-                stats.getAverage(),
-                stats.getMin(),
-                stats.getMax(),
-                stats.getCount()
-        );
+        mostrarTitulo("ESTADISTICAS DE LIBROS");
+        // Mostrar estadísticas
+        var recuadro = """
+                 
+                * Total de Descargas   : %s
+                * Promedio de Descargas: %s
+                * Minimo de Descargas  : %s
+                * Maximo de Descargas  : %s
+                * Numeros de Libros    : %s
+                
+                """;
+        System.out.printf(recuadro,
+                stats.getSum() + " ".repeat(26 - (stats.getSum() + "").length()),
+                stats.getAverage() + " ".repeat(26 - (stats.getAverage() + "").length()),
+                stats.getMin() + " ".repeat(26 - (stats.getMin() + "").length()),
+                stats.getMax() + " ".repeat(26 - (stats.getMax() + "").length()),
+                stats.getCount() + " ".repeat(26 - (stats.getCount() + "").length()));
+
+    }
+
+    private void mostrarTitulo(String titulo) {
+
+        System.out.printf("""
+                        \u001B[36m
+                                
+                                ║%s║
+                                
+                                \u001B[0m
+                                """,
+                titulo + " ".repeat(50 - titulo.length()));
     }
 }
